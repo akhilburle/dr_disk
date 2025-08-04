@@ -20,6 +20,10 @@ struct Args {
     /// Use total disk space for color thresholds instead of current view's total size
     #[arg(long)]
     total_disk_color: bool,
+
+    /// Run the tool once and exit, without entering interactive mode.
+    #[arg(long)]
+    once: bool,
 }
 
 struct State {
@@ -54,45 +58,53 @@ fn main() -> anyhow::Result<()> {
     }
 
     let mut state = State {
-        current_path: args.path,
+        current_path: args.path.canonicalize()?,
         total_disk_space,
     };
 
-    loop {
+    if args.once {
         if !state.current_path.is_dir() {
             anyhow::bail!(
                 "Provided path is not a directory: {}",
                 state.current_path.display()
             );
         }
-
         scan_and_display(&state)?;
-
-        print!("> ");
-        io::stdout().flush()?;
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-        let input = input.trim();
-
-        if input == "q" || input == "quit" {
-            break;
-        } else if input == ".." || input == "up" {
-            if let Some(parent) = state.current_path.parent() {
-                state.current_path = parent.to_path_buf();
+    } else {
+        loop {
+            if !state.current_path.is_dir() {
+                anyhow::bail!(
+                    "Provided path is not a directory: {}",
+                    state.current_path.display()
+                );
             }
-        } else if input.starts_with("cd ") {
-            let new_dir = input.split_at(3).1;
-            let new_path = state.current_path.join(new_dir);
-            if new_path.is_dir() {
-                state.current_path = new_path.canonicalize()?;
-            } else {
-                println!("Directory not found: {}", new_dir);
+
+            scan_and_display(&state)?;
+
+            print!("> ");
+            io::stdout().flush()?;
+
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)?;
+            let input = input.trim();
+
+            if input == "q" || input == "quit" {
+                break;
+            } else if input == ".." || input == "up" {
+                if let Some(parent) = state.current_path.parent() {
+                    state.current_path = parent.to_path_buf();
+                }
+            } else if input.starts_with("cd ") {
+                let new_dir = input.split_at(3).1;
+                let new_path = state.current_path.join(new_dir);
+                if new_path.is_dir() {
+                    state.current_path = new_path.canonicalize()?;
+                } else {
+                    println!("Directory not found: {}", new_dir);
+                }
+            } else if input == "help" {
+                println!("Commands: cd <dir>, .., up, q, quit, help");
             }
-        } else if input == "help" {
-            println!("Commands: cd <dir>, .., up, q, quit, help");
-        } else if !input.is_empty() {
-            println!("Unknown command: {}. Type 'help' for a list of commands.", input);
         }
     }
 
@@ -149,6 +161,7 @@ fn scan_and_display(state: &State) -> anyhow::Result<()> {
 
     entries.sort_by(|a, b| b.1.cmp(&a.1));
 
+    println!("Summary for: {}", state.current_path.display().to_string().bold());
     println!("{:<50} {:>15} {:>10}", "Path", "Size", "%");
     println!("{}", "-".repeat(76));
 
