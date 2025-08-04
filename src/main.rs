@@ -3,12 +3,23 @@ use colored::*;
 use filesize::PathExt;
 use human_format::Formatter;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::io::{self, Write};
+
 use std::path::{Path, PathBuf};
 use std::thread;
 use chrono::{DateTime, Local};
 use std::fs;
 use std::time::SystemTime;
+use rustyline::{
+    Editor,
+    error::ReadlineError,
+    completion::{Completer, Pair},
+    highlight::Highlighter,
+    hint::Hinter,
+    validate::{Validator, ValidationContext, ValidationResult},
+    Helper,
+    Config,
+};
+use rustyline::history::MemHistory;
 
 use sysinfo::{Disk, Disks};
 use walkdir::WalkDir;
@@ -33,6 +44,60 @@ struct State {
     current_path: PathBuf,
     total_disk_space: Option<u64>,
 }
+
+// Custom Completer for rustyline
+#[derive(Default)]
+struct DrDiskCompleter {
+    current_dir_entries: Vec<String>,
+}
+
+impl Completer for DrDiskCompleter {
+    type Candidate = Pair;
+
+    fn complete(&self, line: &str, pos: usize, _ctx: &rustyline::Context<'_>) -> Result<(usize, Vec<Pair>), ReadlineError> {
+        let mut candidates = Vec::new();
+        let input = &line[..pos];
+
+        // Simple completion for 'cd' command
+        if input.starts_with("cd ") {
+            let partial_path = &input[3..];
+            for entry in &self.current_dir_entries {
+                if entry.starts_with(partial_path) {
+                    candidates.push(Pair {
+                        display: entry.clone(),
+                        replacement: entry.clone(),
+                    });
+                }
+            }
+            return Ok((3, candidates)); // Start replacement after "cd "
+        } else if "cd".starts_with(input) {
+            candidates.push(Pair { display: "cd ".to_string(), replacement: "cd ".to_string() });
+        }
+
+        // Basic completion for other commands
+        let commands = vec!["q", "quit", "..", "up", "help"];
+        for cmd in commands {
+            if cmd.starts_with(input) {
+                candidates.push(Pair { display: cmd.to_string(), replacement: cmd.to_string() });
+            }
+        }
+
+        Ok((0, candidates))
+    }
+}
+
+// Dummy implementations for Highlighter, Hinter, and Validator
+impl Highlighter for DrDiskCompleter {}
+impl Hinter for DrDiskCompleter {
+    type Hint = String;
+}
+impl Validator for DrDiskCompleter {
+    fn validate(&self, _ctx: &mut ValidationContext) -> Result<ValidationResult, ReadlineError> {
+        Ok(ValidationResult::Valid(None))
+    }
+}
+
+impl Helper for DrDiskCompleter {}
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
@@ -74,6 +139,9 @@ fn main() -> anyhow::Result<()> {
         }
         scan_and_display(&state)?;
     } else {
+        let mut rl = Editor::<DrDiskCompleter, MemHistory>::with_history(Config::builder().build(), MemHistory::new()).unwrap();
+        rl.set_helper(Some(DrDiskCompleter::default()));
+
         loop {
             if !state.current_path.is_dir() {
                 anyhow::bail!(
@@ -84,29 +152,54 @@ fn main() -> anyhow::Result<()> {
 
             scan_and_display(&state)?;
 
-            print!("> ");
-            io::stdout().flush()?;
+            // Update completer with current directory entries
+            let current_dir_entries: Vec<String> = WalkDir::new(&state.current_path)
+                .min_depth(1)
+                .max_depth(1)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter_map(|e| e.file_name().to_str().map(|s| s.to_string()))
+                .collect();
+            rl.helper_mut().unwrap().current_dir_entries = current_dir_entries;
 
-            let mut input = String::new();
-            io::stdin().read_line(&mut input)?;
-            let input = input.trim();
+            let readline = rl.readline(&format!("{}> ", state.current_path.display()));
+            match readline {
+                Ok(line) => {
+                    let input = line.trim();
+                    rl.add_history_entry(line.clone())?;
 
-            if input == "q" || input == "quit" {
-                break;
-            } else if input == ".." || input == "up" {
-                if let Some(parent) = state.current_path.parent() {
-                    state.current_path = parent.to_path_buf();
+                    if input == "q" || input == "quit" {
+                        break;
+                    } else if input == ".." || input == "up" {
+                        if let Some(parent) = state.current_path.parent() {
+                            state.current_path = parent.to_path_buf();
+                        }
+                    } else if input.starts_with("cd ") {
+                        let new_dir = input.split_at(3).1;
+                        let new_path = state.current_path.join(new_dir);
+                        if new_path.is_dir() {
+                            state.current_path = new_path.canonicalize()?;
+                        } else {
+                            println!("Directory not found: {}", new_dir);
+                        }
+                    } else if input == "help" {
+                        println!("Commands: cd <dir>, .., up, q, quit, help");
+                    } else if !input.is_empty() {
+                        println!("Unknown command: {}. Type 'help' for a list of commands.", input);
+                    }
+                },
+                Err(ReadlineError::Interrupted) => {
+                    println!("Ctrl-C");
+                    break;
+                },
+                Err(ReadlineError::Eof) => {
+                    println!("Ctrl-D");
+                    break;
+                },
+                Err(err) => {
+                    println!("Error: {:?}", err);
+                    break;
                 }
-            } else if input.starts_with("cd ") {
-                let new_dir = input.split_at(3).1;
-                let new_path = state.current_path.join(new_dir);
-                if new_path.is_dir() {
-                    state.current_path = new_path.canonicalize()?;
-                } else {
-                    println!("Directory not found: {}", new_dir);
-                }
-            } else if input == "help" {
-                println!("Commands: cd <dir>, .., up, q, quit, help");
             }
         }
     }
@@ -156,13 +249,13 @@ fn scan_and_display(state: &State) -> anyhow::Result<()> {
         let bar_clone = bar.clone();
         let handle = thread::spawn(move || {
             let path = entry.path();
-            let (size, modified_time) = if path.is_dir() {
+            let size = if path.is_dir() {
                 get_dir_size_and_modified(path)
             } else {
                 (path.size_on_disk().unwrap_or(0), fs::metadata(&path).and_then(|m| m.modified()).ok())
             };
             bar_clone.inc(1);
-            (path.to_path_buf(), size, modified_time)
+            (path.to_path_buf(), size.0, size.1)
         });
         handles.push(handle);
     }
