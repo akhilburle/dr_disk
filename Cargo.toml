@@ -1,0 +1,16 @@
+[package]
+name = "dr_disk"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.98"
+clap = { version = "4.5.42", features = ["derive"] }
+colored = "3.0.0"
+filesize = "0.2.0"
+human_format = "1.1.0"
+indicatif = "0.18.0"
+sysinfo = "0.36.1"
+walkdir = "2.5.0"
