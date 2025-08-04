@@ -16,13 +16,21 @@
 
 ## Installation
 
-To install and run `dr_disk`, you need to have Rust and Cargo installed on your system. If you don't have them, you can install them via `rustup`:
+To install `dr_disk`, you need to have Rust and Cargo installed on your system. If you don't have them, you can install them via `rustup`:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-Once Rust and Cargo are installed, follow these steps:
+Once Rust and Cargo are installed, you can install `dr_disk` directly from crates.io (once published) or from the source code:
+
+### From Crates.io (Recommended, once published)
+
+```bash
+cargo install dr_disk
+```
+
+### From Source
 
 1.  **Clone the repository:**
     ```bash
@@ -30,28 +38,21 @@ Once Rust and Cargo are installed, follow these steps:
     cd dr_disk
     ```
 
-2.  **Build the project:**
+2.  **Install from source:**
     ```bash
-    cargo build --release
+    cargo install --path .
     ```
-    This command compiles the project and creates an optimized executable in the `target/release/` directory.
 
 ## Usage
 
-Navigate to the directory you want to analyze and run `dr_disk`.
+Once installed, you can run `dr_disk` from any directory:
 
 ### Basic Usage
 
 To run `dr_disk` in the current directory:
 
 ```bash
-./target/release/dr_disk
-```
-
-Or, if you want to run it directly from the source directory:
-
-```bash
-cargo run
+dr_disk
 ```
 
 ### Command-Line Arguments
@@ -59,17 +60,13 @@ cargo run
 -   `--total-disk-color`: Use this flag to base the color thresholds on the total capacity of the disk where the scanned directory resides, instead of the total size of the currently displayed items. This is useful for understanding the impact of files relative to your entire storage.
 
     ```bash
-    ./target/release/dr_disk --total-disk-color
-    # Or with cargo run:
-    cargo run -- --total-disk-color
+dr_disk --total-disk-color
     ```
 
 -   `path`: You can specify a different path to scan instead of the current directory:
 
     ```bash
-    ./target/release/dr_disk /path/to/another/directory
-    # Or with cargo run:
-    cargo run -- /path/to/another/directory
+dr_disk /path/to/another/directory
     ```
 
 ### Interactive Commands
