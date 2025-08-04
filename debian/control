@@ -1,0 +1,16 @@
+Source: dr-disk
+Section: utils
+Priority: optional
+Maintainer: Akhil Burle <akhilburle@example.com>
+Build-Depends: debhelper-compat (= 13), dh-cargo, rustc, cargo
+Standards-Version: 4.6.0
+Homepage: https://github.com/akhilburle/dr_disk
+
+Package: dr-disk
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: An interactive Rust CLI tool for disk usage analysis.
+ .
+ dr_disk helps identify and clean up large files by recursively scanning
+ directories, providing size-based color-coding, percentage display,
+ and basic navigation.

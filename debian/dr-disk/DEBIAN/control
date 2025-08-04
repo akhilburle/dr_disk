@@ -1,0 +1,14 @@
+Package: dr-disk
+Version: 0.1.0-1
+Architecture: arm64
+Maintainer: Akhil Burle <akhilburle@example.com>
+Installed-Size: 1103
+Depends: libc6 (>= 2.34), libgcc-s1 (>= 4.2)
+Section: utils
+Priority: optional
+Homepage: https://github.com/akhilburle/dr_disk
+Description: An interactive Rust CLI tool for disk usage analysis.
+ .
+ dr_disk helps identify and clean up large files by recursively scanning
+ directories, providing size-based color-coding, percentage display,
+ and basic navigation.

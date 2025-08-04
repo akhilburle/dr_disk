@@ -1,0 +1,13 @@
+Package: dr-disk-dbgsym
+Package-Type: ddeb
+Source: dr-disk
+Version: 0.1.0-1
+Auto-Built-Package: debug-symbols
+Architecture: arm64
+Maintainer: Akhil Burle <akhilburle@example.com>
+Installed-Size: 425
+Depends: dr-disk (= 0.1.0-1)
+Section: debug
+Priority: optional
+Description: debug symbols for dr-disk
+Build-Ids: 4cb8612ca796759c788e04d593c2ab8caf4db4bb
