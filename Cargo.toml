@@ -1,6 +1,6 @@
 [package]
 name = "dr_disk"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "An interactive Rust CLI tool for disk usage analysis."
 license = "MIT"
@@ -8,6 +8,9 @@ repository = "https://github.com/akhilburle/dr_disk.git"
 keywords = ["disk-usage", "cli", "utility", "rust", "file-management"]
 categories = ["command-line-utilities", "filesystem"]
 readme = "README.md"
+exclude = [
+    "debian/*",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
