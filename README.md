@@ -60,13 +60,13 @@ dr_disk
 -   `--total-disk-color`: Use this flag to base the color thresholds on the total capacity of the disk where the scanned directory resides, instead of the total size of the currently displayed items. This is useful for understanding the impact of files relative to your entire storage.
 
     ```bash
-dr_disk --total-disk-color
+    dr_disk --total-disk-color
     ```
 
 -   `path`: You can specify a different path to scan instead of the current directory:
 
     ```bash
-dr_disk /path/to/another/directory
+    dr_disk /path/to/another/directory
     ```
 
 ### Interactive Commands
