@@ -22,9 +22,9 @@ To install `dr_disk`, you need to have Rust and Cargo installed on your system. 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-Once Rust and Cargo are installed, you can install `dr_disk` directly from crates.io (once published) or from the source code:
+Once Rust and Cargo are installed, you can install `dr_disk` directly from crates.io or from the source code:
 
-### From Crates.io (Recommended, once published)
+### From Crates.io (Recommended)
 
 ```bash
 cargo install dr_disk
