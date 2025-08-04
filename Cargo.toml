@@ -19,5 +19,10 @@ colored = "3.0.0"
 filesize = "0.2.0"
 human_format = "1.1.0"
 indicatif = "0.18.0"
+rustyline = "17.0.0"
 sysinfo = "0.36.1"
 walkdir = "2.5.0"
+
+[dev-dependencies]
+assert_cmd = "2.0.17"
+predicates = "3.1.3"
