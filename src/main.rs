@@ -6,6 +6,9 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::thread;
+use chrono::{DateTime, Local};
+use std::fs;
+use std::time::SystemTime;
 
 use sysinfo::{Disk, Disks};
 use walkdir::WalkDir;
@@ -111,13 +114,25 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn get_dir_size(path: &Path) -> u64 {
-    WalkDir::new(path)
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|e| e.file_type().is_file())
-        .map(|e| e.path().size_on_disk().unwrap_or(0))
-        .sum()
+fn get_dir_size_and_modified(path: &Path) -> (u64, Option<SystemTime>) {
+    let mut total_size = 0;
+    let mut latest_modified: Option<SystemTime> = None;
+
+    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+        let entry_path = entry.path();
+        if entry_path.is_file() {
+            total_size += entry_path.size_on_disk().unwrap_or(0);
+        }
+
+        if let Ok(metadata) = fs::metadata(entry_path) {
+            if let Ok(modified) = metadata.modified() {
+                if latest_modified.is_none() || modified > latest_modified.unwrap() {
+                    latest_modified = Some(modified);
+                }
+            }
+        }
+    }
+    (total_size, latest_modified)
 }
 
 fn scan_and_display(state: &State) -> anyhow::Result<()> {
@@ -141,13 +156,13 @@ fn scan_and_display(state: &State) -> anyhow::Result<()> {
         let bar_clone = bar.clone();
         let handle = thread::spawn(move || {
             let path = entry.path();
-            let size = if path.is_dir() {
-                get_dir_size(path)
+            let (size, modified_time) = if path.is_dir() {
+                get_dir_size_and_modified(path)
             } else {
-                path.size_on_disk().unwrap_or(0)
+                (path.size_on_disk().unwrap_or(0), fs::metadata(&path).and_then(|m| m.modified()).ok())
             };
             bar_clone.inc(1);
-            (path.to_path_buf(), size)
+            (path.to_path_buf(), size, modified_time)
         });
         handles.push(handle);
     }
@@ -162,17 +177,19 @@ fn scan_and_display(state: &State) -> anyhow::Result<()> {
     entries.sort_by(|a, b| b.1.cmp(&a.1));
 
     println!("Summary for: {}", state.current_path.display().to_string().bold());
-    println!("{:<50} {:>15} {:>10}", "Path", "Size", "%");
-    println!("{}", "-".repeat(76));
+    println!("{:<40} {:>15} {:>10} {:>20}", "Path", "Size", "%", "Last Touched");
+    println!("{}", "-".repeat(90));
 
     let (red_threshold, yellow_threshold, total_for_percentage) = if let Some(total_disk_space) = state.total_disk_space {
         (total_disk_space / 100, total_disk_space / 1000, total_disk_space) // 1% and 0.1% of total disk space
     } else {
-        let total_displayed_size: u64 = entries.iter().map(|(_, size)| size).sum();
+        let total_displayed_size: u64 = entries.iter().map(|(_, size, _)| size).sum();
         (total_displayed_size / 10, total_displayed_size / 100, total_displayed_size) // 10% and 1% of current view
     };
 
-    for (path, size) in &entries {
+    let now = Local::now();
+
+    for (path, size, modified_time) in &entries {
         let size_str = Formatter::new().format(*size as f64);
         let percentage = (*size as f64 / total_for_percentage as f64) * 100.0;
         let percentage_str = format!("{:.2}", percentage);
@@ -191,11 +208,29 @@ fn scan_and_display(state: &State) -> anyhow::Result<()> {
             path.file_name().unwrap().to_str().unwrap().normal()
         };
 
+        let modified_str = if let Some(time) = modified_time {
+            let datetime: DateTime<Local> = (*time).into();
+            let duration = now.signed_duration_since(datetime);
+
+            if duration.num_days() > 0 {
+                format!("{} days ago", duration.num_days())
+            } else if duration.num_hours() > 0 {
+                format!("{} hours ago", duration.num_hours())
+            } else if duration.num_minutes() > 0 {
+                format!("{} minutes ago", duration.num_minutes())
+            } else {
+                "just now".to_string()
+            }
+        } else {
+            "N/A".to_string()
+        };
+
         println!(
-            "{:<50} {:>15} {:>10}",
+            "{:<40} {:>15} {:>10} {:>20}",
             path_display,
             size_str.to_string().color(color),
-            percentage_str.to_string().color(color)
+            percentage_str.to_string().color(color),
+            modified_str
         );
     }
 
