@@ -1,6 +1,9 @@
-# dr_disk
+# Dr. Disk
 
 `dr_disk` is an interactive command-line interface (CLI) tool written in Rust designed to help you analyze and manage disk space efficiently. It provides a clear, color-coded overview of file and directory sizes, making it easy to identify large files and folders that might be good candidates for cleanup.
+
+![dr_disk](https://github.com/user-attachments/assets/ae6fa8d0-fa74-4495-91b4-3fbc94b5d9de)
+
 
 ## Features
 
